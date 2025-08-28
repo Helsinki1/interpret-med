@@ -17,6 +17,7 @@ export default function Home() {
   const [currentLanguage, setCurrentLanguage] = useState<string>('');
   const [detectedLanguages, setDetectedLanguages] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState<'en' | 'es' | 'zh'>('en');
   
   const mediaRecorderRef = useRef<any>(null);
   const websocketRef = useRef<WebSocket | null>(null);
@@ -87,7 +88,7 @@ export default function Home() {
       // Create WebSocket connection with Nova-2 (confirmed Chinese support)
       const wsParams = new URLSearchParams({
         model: 'nova-2', // Nova-2 confirmed to support Chinese (Nova-3 does NOT)
-        language: 'multi', // Multilingual mode for automatic detection
+        language: selectedLanguage, // Use user-selected language for better quality
         smart_format: 'true',
         punctuate: 'true',
         interim_results: 'true',
@@ -98,7 +99,7 @@ export default function Home() {
         vad_events: 'true' // Voice activity detection for better language switching
       });
       
-      console.log('Using Nova-2 model (confirmed Chinese support)');
+      console.log(`Using Nova-2 model with language: ${selectedLanguage}`);
       const wsUrl = `${websocketUrl}?${wsParams.toString()}`;
       console.log('Connecting to WebSocket URL:', wsUrl);
       console.log('Using API key:', apiKey.substring(0, 10) + '...');
@@ -317,6 +318,40 @@ export default function Home() {
         <div className={styles.contentPanel}>
           {/* Left Panel - Transcription */}
           <div className={styles.leftPanel}>
+            {/* Language Selector */}
+            <div className={styles.languageSelector}>
+              <div className={styles.languageSelectorLabel}>Language:</div>
+              <div className={styles.languageSlider}>
+                <div 
+                  className={`${styles.languageOption} ${selectedLanguage === 'en' ? styles.active : ''} ${isRecording ? styles.disabled : ''}`}
+                  onClick={() => !isRecording && setSelectedLanguage('en')}
+                >
+                  🇺🇸 EN
+                </div>
+                <div 
+                  className={`${styles.languageOption} ${selectedLanguage === 'es' ? styles.active : ''} ${isRecording ? styles.disabled : ''}`}
+                  onClick={() => !isRecording && setSelectedLanguage('es')}
+                >
+                  🇪🇸 ES
+                </div>
+                <div 
+                  className={`${styles.languageOption} ${selectedLanguage === 'zh' ? styles.active : ''} ${isRecording ? styles.disabled : ''}`}
+                  onClick={() => !isRecording && setSelectedLanguage('zh')}
+                >
+                  🇨🇳 ZH
+                </div>
+                <div 
+                  className={styles.languageSliderIndicator}
+                  style={{
+                    transform: `translateX(${
+                      selectedLanguage === 'en' ? '0%' : 
+                      selectedLanguage === 'es' ? '100%' : '200%'
+                    })`
+                  }}
+                />
+              </div>
+            </div>
+            
             <div className={styles.panelHeader}>
               <h2>Live Transcription</h2>
               <div className={styles.controls}>
