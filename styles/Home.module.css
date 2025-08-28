@@ -521,4 +521,186 @@
   font-weight: 600;
   cursor: help;
   border: 1px solid #a7f3d0;
+}
+
+/* Medical Terms Panel Styles */
+.medicalTermsAnalysis {
+  padding: 1rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.termsList {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  max-height: calc(100vh - 350px);
+  padding-right: 0.5rem;
+}
+
+.termsList::-webkit-scrollbar {
+  width: 6px;
+}
+
+.termsList::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.termsList::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.termsList::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.termItem {
+  padding: 1rem;
+  background-color: #fefefe;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.termItem:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-color: #d1d5db;
+}
+
+.termHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.termName {
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 0.95rem;
+}
+
+.termCategory {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background-color: #f3f4f6;
+  color: #6b7280;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.termDefinition {
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: #374151;
+}
+
+.termExample {
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: #6b7280;
+}
+
+.termDefinition strong,
+.termExample strong {
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.termsStats {
+  padding: 1rem;
+  background-color: #f8fafc;
+  border-radius: 0.5rem;
+  border-top: 3px solid #2563eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.termsStats p {
+  margin: 0;
+  color: #374151;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.clearTermsButton {
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.clearTermsButton:hover {
+  background-color: #dc2626;
+}
+
+.processingText {
+  color: #f59e0b !important;
+  font-weight: 500 !important;
+  font-style: italic;
+}
+
+/* Delete and Clear Button Styles */
+.deleteButton {
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  opacity: 0.7;
+}
+
+.deleteButton:hover {
+  background-color: #dc2626;
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.clearButton {
+  background-color: #6b7280;
+  color: white;
+  border: none;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.clearButton:hover {
+  background-color: #4b5563;
+}
+
+.termHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 } 

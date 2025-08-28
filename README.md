@@ -7,7 +7,7 @@ A Next.js application that provides real-time speech transcription using Deepgra
 - Real-time speech transcription using Deepgram
 - **Medical terminology correction using GPT-3.5-turbo**
 - Support for multiple languages
-- **Enhanced text card separation (4-second intervals for more text per card)**
+- **Enhanced text card separation (8-second intervals for more text per card)**
 - Clean, medical-focused UI
 - Secure API key handling (server-side only)
 - Responsive design
@@ -54,11 +54,15 @@ A Next.js application that provides real-time speech transcription using Deepgra
 8. Click "Stop Recording" to end the session
 
 ### Medical Correction Features
-- Corrects medical terminology (e.g., "high per tension" → "hypertension")
-- Fixes medication names (e.g., "met formin" → "metformin")
-- Corrects anatomical terms (e.g., "cardio vascular" → "cardiovascular")
+- **Language Consistency**: Always uses the user-selected language for corrections, ensuring consistency throughout the session
+- **Conservative Corrections**: Makes minimal, targeted corrections only to clear medical terminology errors
+- **Natural Speech Preservation**: Maintains original sentence structure, conversational tone, and cultural expressions
+- **Medical Interpreter Context**: Recognizes professional medical interpreter language patterns (ID numbers, greetings, etc.)
+- Corrects obvious medical terminology (e.g., "high per tension" → "hypertension")
+- Fixes clear medication names (e.g., "met formin" → "metformin")
+- Corrects anatomical terms only when clearly mispronounced
 - Uses conversation context for better accuracy
-- Preserves natural language and conversational tone
+- Preserves filler words, natural pauses, and cultural expressions
 
 ## Security
 
