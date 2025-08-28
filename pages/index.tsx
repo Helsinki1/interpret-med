@@ -8,6 +8,8 @@ interface TranscriptResult {
   timestamp: number;
   language?: string;
   confidence?: number;
+  originalTranscript?: string; // Store original before correction
+  isCorrected?: boolean; // Flag to indicate if medical correction was applied
 }
 
 export default function Home() {
@@ -18,6 +20,8 @@ export default function Home() {
   const [detectedLanguages, setDetectedLanguages] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<'en' | 'es' | 'zh'>('en');
+  const [medicalCorrectionEnabled, setMedicalCorrectionEnabled] = useState(true);
+  const [isProcessingCorrection, setIsProcessingCorrection] = useState(false);
   
   const mediaRecorderRef = useRef<any>(null);
   const websocketRef = useRef<WebSocket | null>(null);
@@ -50,6 +54,48 @@ export default function Home() {
     };
     
     return languages[langCode] || { name: langCode, flag: '🌐' };
+  };
+
+  // Medical terminology correction function
+  const correctMedicalTerminology = async (text: string): Promise<string> => {
+    if (!medicalCorrectionEnabled || !text.trim()) {
+      return text;
+    }
+
+    try {
+      setIsProcessingCorrection(true);
+      
+      // Get conversation context from recent transcripts
+      const conversationContext = transcript
+        .slice(-5) // Last 5 transcripts for context
+        .map(t => t.isCorrected ? t.transcript : t.originalTranscript || t.transcript);
+
+      const response = await fetch('/api/medical-correction', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: text,
+          conversationContext: conversationContext,
+          language: selectedLanguage
+        }),
+      });
+
+      if (!response.ok) {
+        console.warn('Medical correction failed, using original text');
+        return text;
+      }
+
+      const result = await response.json();
+      return result.correctedText || text;
+      
+    } catch (error) {
+      console.error('Medical correction error:', error);
+      return text; // Fallback to original text
+    } finally {
+      setIsProcessingCorrection(false);
+    }
   };
 
   const startRecording = async () => {
@@ -95,7 +141,7 @@ export default function Home() {
         encoding: 'linear16',
         sample_rate: audioContext.sampleRate.toString(),
         channels: '1',
-        endpointing: '2000', // Wait 2 seconds before finalizing (creates longer segments)
+        endpointing: '4000', // Wait 4 seconds before finalizing (creates longer segments with more text per card)
         vad_events: 'true' // Voice activity detection for better language switching
       });
       
@@ -156,13 +202,23 @@ export default function Home() {
           
           if (transcriptText) {
             if (isFinal) {
-              setTranscript(prev => [...prev, {
-                transcript: transcriptText,
-                is_final: true,
-                timestamp: Date.now(),
-                language: detectedLang !== 'multi' ? detectedLang : currentLanguage || 'unknown',
-                confidence: confidence
-              }]);
+              // Process medical correction asynchronously for final transcripts
+              const processTranscript = async () => {
+                const originalText = transcriptText;
+                const correctedText = await correctMedicalTerminology(transcriptText);
+                
+                setTranscript(prev => [...prev, {
+                  transcript: correctedText,
+                  originalTranscript: originalText,
+                  isCorrected: correctedText !== originalText,
+                  is_final: true,
+                  timestamp: Date.now(),
+                  language: detectedLang !== 'multi' ? detectedLang : currentLanguage || 'unknown',
+                  confidence: confidence
+                }]);
+              };
+              
+              processTranscript();
               setCurrentInterim('');
             } else {
               setCurrentInterim(transcriptText);
@@ -352,6 +408,25 @@ export default function Home() {
               </div>
             </div>
             
+            {/* Medical Correction Toggle */}
+            <div className={styles.medicalCorrectionToggle}>
+              <label className={styles.toggleLabel}>
+                <input
+                  type="checkbox"
+                  checked={medicalCorrectionEnabled}
+                  onChange={(e) => setMedicalCorrectionEnabled(e.target.checked)}
+                  disabled={isRecording}
+                />
+                <span className={styles.toggleText}>
+                  🏥 Medical Terminology Correction
+                  {isProcessingCorrection && <span className={styles.processingIndicator}> (Processing...)</span>}
+                </span>
+              </label>
+              <div className={styles.toggleDescription}>
+                Uses GPT-3.5-turbo to correct medical terms, drug names, and anatomical terminology
+              </div>
+            </div>
+            
             <div className={styles.panelHeader}>
               <h2>Live Transcription</h2>
               <div className={styles.controls}>
@@ -393,16 +468,23 @@ export default function Home() {
                     <span className={styles.timestamp}>
                       {new Date(result.timestamp).toLocaleTimeString()}
                     </span>
-                    {result.language && (
-                      <span className={styles.languageTag}>
-                        {getLanguageDisplay(result.language).flag} {getLanguageDisplay(result.language).name}
-                        {result.confidence && (
-                          <span className={styles.confidence}>
-                            {Math.round(result.confidence * 100)}%
-                          </span>
-                        )}
-                      </span>
-                    )}
+                    <div className={styles.headerRight}>
+                      {result.isCorrected && (
+                        <span className={styles.correctedIndicator} title={`Original: ${result.originalTranscript}`}>
+                          ✅ Corrected
+                        </span>
+                      )}
+                      {result.language && (
+                        <span className={styles.languageTag}>
+                          {getLanguageDisplay(result.language).flag} {getLanguageDisplay(result.language).name}
+                          {result.confidence && (
+                            <span className={styles.confidence}>
+                              {Math.round(result.confidence * 100)}%
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <span className={styles.transcriptText}>
                     {result.transcript}

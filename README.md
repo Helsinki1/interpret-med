@@ -5,11 +5,14 @@ A Next.js application that provides real-time speech transcription using Deepgra
 ## Features
 
 - Real-time speech transcription using Deepgram
+- **Medical terminology correction using GPT-3.5-turbo**
 - Support for multiple languages
+- **Enhanced text card separation (4-second intervals for more text per card)**
 - Clean, medical-focused UI
 - Secure API key handling (server-side only)
 - Responsive design
 - Real-time interim results
+- Conversation context awareness for better corrections
 
 ## Setup
 
@@ -18,12 +21,17 @@ A Next.js application that provides real-time speech transcription using Deepgra
    npm install
    ```
 
-2. **Configure Deepgram API:**
-   - Sign up for a Deepgram account at [https://deepgram.com](https://deepgram.com)
-   - Get your API key from the Deepgram dashboard
+2. **Configure API Keys:**
+   - **Deepgram API** (required for transcription):
+     - Sign up for a Deepgram account at [https://deepgram.com](https://deepgram.com)
+     - Get your API key from the Deepgram dashboard
+   - **OpenAI API** (required for medical correction):
+     - Sign up for an OpenAI account at [https://platform.openai.com](https://platform.openai.com)
+     - Get your API key from [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
    - Create a `.env.local` file in the root directory:
      ```
      DEEPGRAM_API_KEY=your_deepgram_api_key_here
+     OPENAI_API_KEY=your_openai_api_key_here
      ```
 
 3. **Run the development server:**
@@ -36,11 +44,21 @@ A Next.js application that provides real-time speech transcription using Deepgra
 
 ## Usage
 
-1. Click "Start Recording" to begin transcription
-2. Allow microphone access when prompted
-3. Speak clearly - transcription will appear in real-time
-4. Final transcripts appear in green, interim results in yellow
-5. Click "Stop Recording" to end the session
+1. **Enable Medical Correction**: Toggle the "Medical Terminology Correction" checkbox to enable GPT-powered medical term correction
+2. Click "Start Recording" to begin transcription
+3. Allow microphone access when prompted
+4. Speak clearly - transcription will appear in real-time
+5. Final transcripts appear in green, interim results in yellow
+6. **Medical corrections** are automatically applied to final transcripts when enabled (marked with ✅ Corrected)
+7. Hover over the "Corrected" indicator to see the original text
+8. Click "Stop Recording" to end the session
+
+### Medical Correction Features
+- Corrects medical terminology (e.g., "high per tension" → "hypertension")
+- Fixes medication names (e.g., "met formin" → "metformin")
+- Corrects anatomical terms (e.g., "cardio vascular" → "cardiovascular")
+- Uses conversation context for better accuracy
+- Preserves natural language and conversational tone
 
 ## Security
 
