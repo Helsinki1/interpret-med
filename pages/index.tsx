@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import styles from '../styles/Home.module.css';
+import { io, Socket } from 'socket.io-client';
 
 interface TranscriptResult {
   id?: string;
@@ -33,7 +34,7 @@ export default function Home() {
   const [isProcessingTerms, setIsProcessingTerms] = useState(false);
   
   const mediaRecorderRef = useRef<any>(null);
-  const websocketRef = useRef<WebSocket | null>(null);
+  const socketRef = useRef<Socket | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const transcriptContainerRef = useRef<HTMLDivElement>(null);
   const termsListRef = useRef<HTMLDivElement>(null);
@@ -211,85 +212,70 @@ export default function Home() {
     try {
       setError(null);
       
-      // Get API credentials from our secure backend
-      const response = await fetch('/api/transcribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      // Initialize Socket.IO connection
+      const socket = io();
+      socketRef.current = socket;
+
+      socket.on('connect', async () => {
+        console.log('Connected to server with socket ID:', socket.id);
+        
+        // Get user media
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+          } 
+        });
+        
+        // Use Web Audio API to process audio in the format Deepgram expects
+        const audioContext = new ((window as any).AudioContext || (window as any).webkitAudioContext)();
+        const source = audioContext.createMediaStreamSource(stream);
+        const processor = audioContext.createScriptProcessor(4096, 1, 1);
+        
+        console.log('AudioContext sample rate:', audioContext.sampleRate);
+
+        // Start the recording process on the server
+        socket.emit('start-recording', {
+            model: 'nova-2',
+            language: selectedLanguage,
+            encoding: 'linear16',
+            sampleRate: audioContext.sampleRate
+        });
+        
+        processor.onaudioprocess = (event: any) => {
+            const inputBuffer = event.inputBuffer;
+            const inputData = inputBuffer.getChannelData(0);
+            
+            const int16Array = new Int16Array(inputData.length);
+            for (let i = 0; i < inputData.length; i++) {
+                const sample = Math.max(-1, Math.min(1, inputData[i]));
+                int16Array[i] = sample * 0x7FFF;
+            }
+            
+            if (socket.connected) {
+                socket.emit('audio-data', int16Array.buffer);
+            }
+        };
+        
+        source.connect(processor);
+        processor.connect(audioContext.destination);
+        
+        // Store references for cleanup
+        mediaRecorderRef.current = { audioContext, processor, source, stream };
       });
       
-      if (!response.ok) {
-        throw new Error('Failed to get Deepgram credentials');
-      }
-      
-      const { apiKey, websocketUrl } = await response.json();
-      
-      // Get user media
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-        } 
-      });
-      
-      // Use Web Audio API to process audio in the format Deepgram expects
-      const audioContext = new ((window as any).AudioContext || (window as any).webkitAudioContext)();
-      const source = audioContext.createMediaStreamSource(stream);
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
-      
-      console.log('AudioContext sample rate:', audioContext.sampleRate);
-      
-      // Create WebSocket connection with Nova-2 (confirmed Chinese support)
-      const wsParams = new URLSearchParams({
-        model: 'nova-2', // Nova-2 confirmed to support Chinese (Nova-3 does NOT)
-        language: selectedLanguage, // Use user-selected language for better quality
-        smart_format: 'true',
-        punctuate: 'true',
-        interim_results: 'true',
-        encoding: 'linear16',
-        sample_rate: audioContext.sampleRate.toString(),
-        channels: '1',
-        endpointing: '15000', // Wait 15 seconds before finalizing (prevents splitting during continuous speech)
-        vad_events: 'true', // Voice activity detection for better language switching
-        utterance_end_ms: '3000' // Only end utterance after 3 seconds of silence
-      });
-      
-      console.log(`Using Nova-2 model with language: ${selectedLanguage}`);
-      const wsUrl = `${websocketUrl}?${wsParams.toString()}`;
-      console.log('Connecting to WebSocket URL:', wsUrl);
-      console.log('Using API key:', apiKey.substring(0, 10) + '...');
-      
-      // WebSocket with proper Deepgram protocol (confirmed working)
-      const ws = new WebSocket(wsUrl, ['token', apiKey]);
-      
-      ws.onopen = () => {
-        console.log('Connected to Deepgram');
+      socket.on('connected', () => {
+        console.log('Connected to Deepgram via server');
         setIsRecording(true);
-        
-        // Send keepalive messages every 5 seconds to maintain connection
-        const keepaliveInterval = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'KeepAlive' }));
-            console.log('Sent keepalive');
-          } else {
-            clearInterval(keepaliveInterval);
-          }
-        }, 5000);
-        
-        // Store interval reference for cleanup
-        (ws as any).keepaliveInterval = keepaliveInterval;
-      };
+      });
       
-      ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
+      socket.on('transcript', (data) => {
         console.log('Received from Deepgram:', data); // Debug log
         
         if (data.channel?.alternatives?.[0]) {
           const transcriptText = data.channel.alternatives[0].transcript;
           const isFinal = data.is_final;
           
-          // Enhanced language detection - check multiple locations
           const detectedLang = data.channel?.detected_language || 
                               data.metadata?.detected_language || 
                               data.channel?.language ||
@@ -298,12 +284,10 @@ export default function Home() {
                               'multi';
           const confidence = data.channel?.alternatives?.[0]?.confidence || 0;
           
-          // Log language info for debugging
           if (transcriptText && detectedLang !== 'multi') {
             console.log(`Text: "${transcriptText}" | Language: ${detectedLang} | Confidence: ${confidence}`);
           }
           
-          // Update current language if detected (and not just 'multi')
           if (detectedLang && detectedLang !== 'multi' && detectedLang !== currentLanguage) {
             setCurrentLanguage(detectedLang);
             setDetectedLanguages(prev => new Set(prev).add(detectedLang));
@@ -312,35 +296,27 @@ export default function Home() {
           
           if (transcriptText) {
             if (isFinal) {
-              // Process medical correction asynchronously for final transcripts
               const processTranscript = async () => {
                 const originalText = transcriptText;
                 const finalLanguage = detectedLang !== 'multi' ? detectedLang : currentLanguage || 'unknown';
                 const correctedText = await correctMedicalTerminology(transcriptText, finalLanguage);
                 const currentTime = Date.now();
                 
-                // Extract medical terms for the terminology panel
                 console.log('Extracting medical terms from:', correctedText);
                 extractMedicalTerms(correctedText, finalLanguage);
                 
                 setTranscript(prev => {
-                  // Check if we should append to the last transcript or create a new one
-                  // Append if: 1) There's a previous transcript, 2) It was recent (within 12 seconds), 
-                  // 3) Same language, 4) Previous transcript was also final, 5) Combined text isn't too long
                   const shouldAppend = prev.length > 0 && 
-                    (currentTime - prev[prev.length - 1].timestamp) < 12000 && // Within 12 seconds
-                    prev[prev.length - 1].language === finalLanguage && // Same language
-                    prev[prev.length - 1].is_final && // Previous was final
-                    // Only create new card if current text box has sufficient content (25+ words)
+                    (currentTime - prev[prev.length - 1].timestamp) < 12000 &&
+                    prev[prev.length - 1].language === finalLanguage &&
+                    prev[prev.length - 1].is_final &&
                     (prev[prev.length - 1].transcript.split(' ').length < 25);
                   
                   if (shouldAppend) {
-                    // Append to the last transcript
                     const updated = [...prev];
                     const lastIndex = updated.length - 1;
                     const lastTranscript = updated[lastIndex];
                     
-                    // Combine the original texts first, then apply correction to the combined text
                     const combinedOriginal = `${lastTranscript.originalTranscript || lastTranscript.transcript} ${originalText}`;
                     
                     updated[lastIndex] = {
@@ -348,14 +324,13 @@ export default function Home() {
                       transcript: `${lastTranscript.transcript} ${correctedText}`,
                       originalTranscript: combinedOriginal,
                       isCorrected: (lastTranscript.isCorrected || correctedText !== originalText),
-                      timestamp: currentTime, // Update to latest timestamp
-                      confidence: Math.max(lastTranscript.confidence || 0, confidence), // Keep highest confidence
-                      id: lastTranscript.id // Preserve ID for deletion
+                      timestamp: currentTime,
+                      confidence: Math.max(lastTranscript.confidence || 0, confidence),
+                      id: lastTranscript.id
                     };
                     
                     return updated;
                   } else {
-                    // Create new transcript card with unique ID
                     return [...prev, {
                       id: `transcript-${currentTime}-${Math.random().toString(36).substr(2, 9)}`,
                       transcript: correctedText,
@@ -376,12 +351,11 @@ export default function Home() {
               setCurrentInterim('');
             } else {
               setCurrentInterim(transcriptText);
-              setLastSpeechTime(Date.now()); // Update last speech time for interim results too
+              setLastSpeechTime(Date.now());
             }
           }
         }
         
-        // Handle metadata messages for language detection
         if (data.type === 'Metadata' && data.detected_language) {
           const detectedLang = data.detected_language;
           if (detectedLang !== currentLanguage) {
@@ -391,7 +365,6 @@ export default function Home() {
           }
         }
         
-        // Handle VAD events (voice activity detection)
         if (data.type === 'SpeechStarted') {
           console.log('Speech started - listening for language detection');
           setLastSpeechTime(Date.now());
@@ -400,70 +373,21 @@ export default function Home() {
         if (data.type === 'SpeechEnded') {
           console.log('Speech ended - potential end of utterance');
         }
-      };
+      });
       
-      ws.onerror = (error) => {
-        console.error('WebSocket error details:', error);
-        console.error('WebSocket readyState:', ws.readyState);
-        console.error('WebSocket URL:', wsUrl);
-        setError(`Connection error: ${error.type || 'Unknown error'}`);
-      };
+      socket.on('error', (errorMessage) => {
+        console.error('Socket error:', errorMessage);
+        setError(`Connection error: ${errorMessage}`);
+      });
       
-      ws.onclose = (event) => {
-        console.log('Disconnected from Deepgram', event);
-        
-        // Clean up keepalive interval
-        if ((ws as any).keepaliveInterval) {
-          clearInterval((ws as any).keepaliveInterval);
-        }
-        
+      socket.on('disconnected', (data) => {
+        console.log('Disconnected from Deepgram', data);
         setIsRecording(false);
-        
-        // If connection closed unexpectedly (not by user), show error
-        if (event.code !== 1000 && event.code !== 1005) {
-          setError(`Connection closed unexpectedly: ${event.code} - ${event.reason || 'Unknown reason'}`);
+        if (data.code !== 1000) {
+            setError(`Connection closed unexpectedly: ${data.code} - ${data.reason || 'Unknown reason'}`);
         }
-      };
-      
-      websocketRef.current = ws;
-      
-      processor.onaudioprocess = (event: any) => {
-        if (ws.readyState === WebSocket.OPEN) {
-          const inputBuffer = event.inputBuffer;
-          const inputData = inputBuffer.getChannelData(0);
-          
-          // Check if there's actual audio data (not just silence)
-          let hasAudio = false;
-          const threshold = 0.01; // Silence threshold
-          for (let i = 0; i < inputData.length; i++) {
-            if (Math.abs(inputData[i]) > threshold) {
-              hasAudio = true;
-              break;
-            }
-          }
-          
-          // Convert float32 to int16 (linear16 format)
-          const int16Array = new Int16Array(inputData.length);
-          for (let i = 0; i < inputData.length; i++) {
-            const sample = Math.max(-1, Math.min(1, inputData[i]));
-            int16Array[i] = sample * 0x7FFF;
-          }
-          
-          // Always send audio data (even silence) to keep connection alive
-          ws.send(int16Array.buffer);
-          
-          if (hasAudio) {
-            console.log('Sending audio chunk with speech, length:', int16Array.length);
-          }
-        }
-      };
-      
-      source.connect(processor);
-      processor.connect(audioContext.destination);
-      
-      // Store references for cleanup
-      mediaRecorderRef.current = { audioContext, processor, source };
-      
+      });
+
     } catch (err) {
       console.error('Error starting recording:', err);
       setError(err instanceof Error ? err.message : 'Failed to start recording');
@@ -472,7 +396,7 @@ export default function Home() {
 
   const stopRecording = () => {
     if (mediaRecorderRef.current) {
-      const { audioContext, processor, source } = mediaRecorderRef.current;
+      const { audioContext, processor, source, stream } = mediaRecorderRef.current;
       if (processor && source && audioContext) {
         try {
           source.disconnect();
@@ -482,19 +406,15 @@ export default function Home() {
           console.log('Error cleaning up audio context:', e);
         }
       }
+      if (stream) {
+        stream.getTracks().forEach((track: MediaStreamTrack) => track.stop());
+      }
     }
     
-    if (websocketRef.current) {
-      // Clean up keepalive interval
-      if ((websocketRef.current as any).keepaliveInterval) {
-        clearInterval((websocketRef.current as any).keepaliveInterval);
-      }
-      
-      if (websocketRef.current.readyState === WebSocket.OPEN) {
-        // Send close message before closing
-        websocketRef.current.send(JSON.stringify({ type: 'CloseStream' }));
-        websocketRef.current.close(1000, 'User stopped recording');
-      }
+    if (socketRef.current) {
+        socketRef.current.emit('stop-recording');
+        socketRef.current.disconnect();
+        socketRef.current = null;
     }
     
     setIsRecording(false);

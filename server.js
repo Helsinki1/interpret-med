@@ -1,29 +1,26 @@
-import { NextApiRequest } from 'next';
-import { Server as SocketIOServer } from 'socket.io';
-import { Server as HTTPServer } from 'http';
-import WebSocket from 'ws';
+const { createServer } = require('http');
+const { Server } = require('socket.io');
+const next = require('next');
+const WebSocket = require('ws');
+const { parse } = require('url');
 
-export default function handler(req: NextApiRequest, res: any) {
-  if (res.socket.server.io) {
-    console.log('Socket.IO already initialized');
-    res.end();
-    return;
-  }
+const dev = process.env.NODE_ENV !== 'production';
+const app = next({ dev });
+const handle = app.getRequestHandler();
 
-  const httpServer: HTTPServer = res.socket.server;
-  const io = new SocketIOServer(httpServer, {
-    path: '/api/socketio',
-    cors: {
-      origin: "*",
-      methods: ["GET", "POST"]
-    }
+const port = process.env.PORT || 3000;
+
+app.prepare().then(() => {
+  const httpServer = createServer((req, res) => {
+    const parsedUrl = parse(req.url, true);
+    handle(req, res, parsedUrl);
   });
-
-  res.socket.server.io = io;
+  
+  const io = new Server(httpServer);
 
   io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
-    let deepgramWs: WebSocket | null = null;
+    let deepgramWs;
 
     socket.on('start-recording', (params) => {
       const apiKey = process.env.DEEPGRAM_API_KEY;
@@ -32,7 +29,6 @@ export default function handler(req: NextApiRequest, res: any) {
         return;
       }
 
-      // Build WebSocket URL with parameters
       const wsParams = new URLSearchParams({
         model: params.model || 'nova-2',
         language: params.language || 'en',
@@ -40,13 +36,13 @@ export default function handler(req: NextApiRequest, res: any) {
         punctuate: 'true',
         interim_results: 'true',
         encoding: params.encoding || 'linear16',
-        sample_rate: params.sampleRate || '48000',
+        sample_rate: params.sampleRate?.toString() || '48000',
         channels: '1',
-        endpointing: '45000',
+        endpointing: '15000',
         vad_events: 'true',
-        utterance_end_ms: '8000'
+        utterance_end_ms: '3000'
       });
-
+      
       const wsUrl = `wss://api.deepgram.com/v1/listen?${wsParams.toString()}`;
       console.log('Connecting to Deepgram:', wsUrl);
 
@@ -104,5 +100,8 @@ export default function handler(req: NextApiRequest, res: any) {
     });
   });
 
-  res.end();
-} 
+  httpServer.listen(port, (err) => {
+    if (err) throw err;
+    console.log(`> Ready on http://localhost:${port}`);
+  });
+}); 
