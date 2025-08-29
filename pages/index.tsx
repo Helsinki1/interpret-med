@@ -678,7 +678,7 @@ export default function Home() {
               
               {transcript.length === 0 && !currentInterim && !isRecording && (
                 <div className={styles.placeholder}>
-                  Click "Start Recording" to begin transcription
+                  Click &quot;Start Recording&quot; to begin transcription
                 </div>
               )}
             </div>
@@ -745,7 +745,7 @@ export default function Home() {
                 </div>
               ) : (
                 <div className={styles.placeholder}>
-                  <p>🩺 Medical terms will appear here as they're detected</p>
+                  <p>🩺 Medical terms will appear here as they&apos;re detected</p>
                   <p>Includes medications, diagnoses, procedures, and anatomical terms</p>
                   {isProcessingTerms && (
                     <p className={styles.processingText}>🔍 Analyzing transcript...</p>
