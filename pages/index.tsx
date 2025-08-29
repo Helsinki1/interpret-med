@@ -32,16 +32,74 @@ export default function Home() {
   const [lastSpeechTime, setLastSpeechTime] = useState<number>(0);
   const [medicalTerms, setMedicalTerms] = useState<MedicalTermDefinition[]>([]);
   const [isProcessingTerms, setIsProcessingTerms] = useState(false);
+  const [editingTranscriptId, setEditingTranscriptId] = useState<string | null>(null);
+  const [editedTranscriptText, setEditedTranscriptText] = useState('');
   
   const mediaRecorderRef = useRef<any>(null);
   const socketRef = useRef<Socket | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const transcriptContainerRef = useRef<HTMLDivElement>(null);
   const termsListRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'inherit';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [editingTranscriptId]); // Run when editing starts
+
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setEditedTranscriptText(e.target.value);
+    e.target.style.height = 'inherit';
+    e.target.style.height = `${e.target.scrollHeight}px`;
+  };
 
   // Delete individual transcript card
   const deleteTranscript = (id: string) => {
     setTranscript(prev => prev.filter(t => t.id !== id));
+  };
+
+  const mergeTranscriptUp = (id: string) => {
+    setTranscript(prev => {
+      const index = prev.findIndex(t => t.id === id);
+      if (index <= 0) {
+        return prev;
+      }
+
+      const current = prev[index];
+      const previous = prev[index - 1];
+
+      const mergedTranscript = {
+        ...previous,
+        transcript: `${previous.transcript} ${current.transcript}`,
+        originalTranscript: `${previous.originalTranscript || previous.transcript} ${current.originalTranscript || current.transcript}`,
+        timestamp: current.timestamp, // Use the timestamp of the later message
+      };
+
+      const finalTranscript = [
+        ...prev.slice(0, index - 1),
+        mergedTranscript,
+        ...prev.slice(index + 1),
+      ];
+
+      return finalTranscript;
+    });
+  };
+
+  const startEditing = (id: string, text: string) => {
+    setEditingTranscriptId(id);
+    setEditedTranscriptText(text);
+  };
+
+  const saveEdit = (id: string) => {
+    setTranscript(prev =>
+      prev.map(t =>
+        t.id === id ? { ...t, transcript: editedTranscriptText } : t
+      )
+    );
+    setEditingTranscriptId(null);
+    setEditedTranscriptText('');
   };
 
   // Clear all transcripts
@@ -297,9 +355,16 @@ export default function Home() {
           if (transcriptText) {
             if (isFinal) {
               const processTranscript = async () => {
-                const originalText = transcriptText;
+                let originalText = transcriptText.trim();
+                if (originalText.startsWith('"') && originalText.endsWith('"')) {
+                  originalText = originalText.slice(1, -1);
+                }
+
                 const finalLanguage = detectedLang !== 'multi' ? detectedLang : currentLanguage || 'unknown';
-                const correctedText = await correctMedicalTerminology(transcriptText, finalLanguage);
+                let correctedText = await correctMedicalTerminology(originalText, finalLanguage);
+                if (correctedText.startsWith('"') && correctedText.endsWith('"')) {
+                  correctedText = correctedText.slice(1, -1);
+                }
                 const currentTime = Date.now();
                 
                 console.log('Extracting medical terms from:', correctedText);
@@ -350,7 +415,11 @@ export default function Home() {
               processTranscript();
               setCurrentInterim('');
             } else {
-              setCurrentInterim(transcriptText);
+              let interimText = transcriptText.trim();
+              if (interimText.startsWith('"') && interimText.endsWith('"')) {
+                interimText = interimText.slice(1, -1);
+              }
+              setCurrentInterim(interimText);
               setLastSpeechTime(Date.now());
             }
           }
@@ -563,13 +632,23 @@ export default function Home() {
                       {result.language && (
                         <span className={styles.languageTag}>
                           {getLanguageDisplay(result.language).flag} {getLanguageDisplay(result.language).name}
-                          {result.confidence && (
-                            <span className={styles.confidence}>
-                              {Math.round(result.confidence * 100)}%
-                            </span>
-                          )}
                         </span>
                       )}
+                      <button 
+                        onClick={() => mergeTranscriptUp(result.id || `${index}`)}
+                        className={styles.mergeButton}
+                        disabled={index === 0}
+                        title="Merge with previous transcript"
+                      >
+                        Merge Up
+                      </button>
+                      <button 
+                        onClick={() => startEditing(result.id || `${index}`, result.transcript)}
+                        className={styles.editButton}
+                        title="Edit this transcript"
+                      >
+                        Edit
+                      </button>
                       <button 
                         onClick={() => deleteTranscript(result.id || `${index}`)}
                         className={styles.deleteButton}
@@ -579,9 +658,21 @@ export default function Home() {
                       </button>
                     </div>
                   </div>
-                  <span className={styles.transcriptText}>
-                    {result.transcript}
-                  </span>
+                  {editingTranscriptId === result.id ? (
+                    <div>
+                      <textarea
+                        ref={textareaRef}
+                        className={styles.editTextarea}
+                        value={editedTranscriptText}
+                        onChange={handleTextareaChange}
+                      />
+                      <button onClick={() => saveEdit(result.id!)} className={styles.saveButton}>Save</button>
+                    </div>
+                  ) : (
+                    <span className={styles.transcriptText}>
+                      {result.transcript}
+                    </span>
+                  )}
                 </div>
               ))}
               

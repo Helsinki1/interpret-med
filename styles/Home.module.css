@@ -660,27 +660,93 @@
 }
 
 /* Delete and Clear Button Styles */
-.deleteButton {
-  background-color: #ef4444;
+.deleteButton,
+.mergeButton,
+.editButton {
+  background-color: #9ca3af;
   color: white;
   border: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  opacity: 0.8;
+}
+
+.deleteButton:hover,
+.mergeButton:hover,
+.editButton:hover {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+.deleteButton {
+  background-color: #ef4444;
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  cursor: pointer;
-  font-size: 0.75rem;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  opacity: 0.7;
+  padding: 0;
 }
 
 .deleteButton:hover {
   background-color: #dc2626;
-  opacity: 1;
-  transform: scale(1.1);
+}
+
+.mergeButton {
+  background-color: #3b82f6;
+}
+
+.mergeButton:hover {
+  background-color: #2563eb;
+}
+
+.mergeButton:disabled {
+  background-color: #d1d5db;
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+}
+
+.editButton {
+  background-color: #f59e0b;
+}
+
+.editButton:hover {
+  background-color: #d97706;
+}
+
+.editTextarea {
+  width: 100%;
+  padding: 0.5rem;
+  margin-top: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.25rem;
+  font-family: inherit;
+  font-size: 1rem;
+  background-color: #ffffff;
+  color: #1f2937;
+  resize: none;
+  overflow-y: hidden;
+  line-height: 1.5;
+}
+
+.saveButton {
+  background-color: #10b981;
+  color: white;
+  border: none;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  margin-top: 0.5rem;
+}
+
+.saveButton:hover {
+  background-color: #059669;
 }
 
 .clearButton {
