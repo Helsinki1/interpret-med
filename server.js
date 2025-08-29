@@ -40,7 +40,7 @@ app.prepare().then(() => {
         channels: '1',
         endpointing: '15000',
         vad_events: 'true',
-        utterance_end_ms: '3000'
+        utterance_end_ms: '5000'
       });
       
       const wsUrl = `wss://api.deepgram.com/v1/listen?${wsParams.toString()}`;

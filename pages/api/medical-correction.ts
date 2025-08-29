@@ -154,7 +154,7 @@ CRITICAL REQUIREMENTS:
    - Correct clear medication name errors using proper spellings from reference
    - Fix anatomical term pronunciation errors
    - Correct medical procedure names only when clearly mispronounced
-7. ADD BASIC PUNCTUATION - Add periods, commas, and question marks where natural, but don't over-punctuate.
+7. ADD BASIC PUNCTUATION - Add periods, commas, question marks, and exclamation points where natural, but do not add quotation marks.
 8. MEDICAL INTERPRETER CONTEXT - Recognize that medical interpreters commonly:
    - State their ID numbers at the beginning ("This is interpreter 12345")
    - Ask "What can I do for you?" or "How can I help you?"
