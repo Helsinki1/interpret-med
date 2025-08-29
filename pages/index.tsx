@@ -325,12 +325,14 @@ export default function Home() {
                 
                 setTranscript(prev => {
                   // Check if we should append to the last transcript or create a new one
-                  // Append if: 1) There's a previous transcript, 2) It was recent (within 5 seconds), 
-                  // 3) Same language, 4) Previous transcript was also final
+                  // Append if: 1) There's a previous transcript, 2) It was recent (within 12 seconds), 
+                  // 3) Same language, 4) Previous transcript was also final, 5) Combined text isn't too long
                   const shouldAppend = prev.length > 0 && 
-                    (currentTime - prev[prev.length - 1].timestamp) < 5000 && // Within 5 seconds
+                    (currentTime - prev[prev.length - 1].timestamp) < 12000 && // Within 12 seconds
                     prev[prev.length - 1].language === finalLanguage && // Same language
-                    prev[prev.length - 1].is_final; // Previous was final
+                    prev[prev.length - 1].is_final && // Previous was final
+                    // Only create new card if current text box has sufficient content (25+ words)
+                    (prev[prev.length - 1].transcript.split(' ').length < 25);
                   
                   if (shouldAppend) {
                     // Append to the last transcript

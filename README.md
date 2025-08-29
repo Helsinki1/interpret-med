@@ -7,7 +7,7 @@ A Next.js application that provides real-time speech transcription using Deepgra
 - Real-time speech transcription using Deepgram
 - **Medical terminology correction using GPT-3.5-turbo**
 - Support for multiple languages
-- **Enhanced text card separation (8-second intervals for more text per card)**
+- **Enhanced text card separation (12-second intervals + 25 word minimum for more text per card)**
 - Clean, medical-focused UI
 - Secure API key handling (server-side only)
 - Responsive design
